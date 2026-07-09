@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Pronunciation Coach</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --panel: #171a21;
+    --panel-2: #1f232c;
+    --border: #2a2f3a;
+    --text: #e8eaed;
+    --muted: #9aa1ab;
+    --accent: #6c8cff;
+    --green: #3ecf8e;
+    --amber: #f0b429;
+    --red: #f0555a;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: radial-gradient(circle at top, #171a21, #0b0d11 70%);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 32px 16px 80px;
+  }
+  .wrap { max-width: 720px; margin: 0 auto; }
+  header { text-align: center; margin-bottom: 28px; }
+  header h1 { font-size: 1.7rem; margin-bottom: 6px; }
+  header p { color: var(--muted); margin: 0; font-size: 0.95rem; }
+
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 24px;
+    margin-bottom: 20px;
+  }
+
+  .dropzone {
+    border: 2px dashed var(--border);
+    border-radius: 12px;
+    padding: 32px 16px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color .15s, background .15s;
+  }
+  .dropzone:hover, .dropzone.drag { border-color: var(--accent); background: var(--panel-2); }
+  .dropzone input { display: none; }
+  .dropzone .hint { color: var(--muted); font-size: 0.85rem; margin-top: 6px; }
+
+  .file-info {
+    display: flex; justify-content: space-between; align-items: center;
+    background: var(--panel-2); border: 1px solid var(--border);
+    border-radius: 10px; padding: 12px 16px; margin-top: 14px; font-size: 0.9rem;
+  }
+  .file-info .dur.ok { color: var(--green); }
+  .file-info .dur.bad { color: var(--red); }
+
+  .consent { display: flex; gap: 10px; align-items: flex-start; margin-top: 16px; font-size: 0.85rem; color: var(--muted); }
+  .consent input { margin-top: 3px; }
+
+  button {
+    width: 100%; padding: 13px; margin-top: 16px;
+    background: var(--accent); color: white; border: none; border-radius: 10px;
+    font-size: 1rem; font-weight: 600; cursor: pointer; transition: opacity .15s;
+  }
+  button:disabled { opacity: 0.4; cursor: not-allowed; }
+  button:not(:disabled):hover { opacity: 0.88; }
+
+  .error-box { background: #2a1417; border: 1px solid #4a1f24; color: #ff9da1; padding: 12px 16px; border-radius: 10px; margin-top: 14px; font-size: 0.9rem; }
+
+  .score-row { display: flex; align-items: center; gap: 20px; }
+  .score-circle {
+    width: 92px; height: 92px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.7rem; font-weight: 700; flex-shrink: 0;
+    border: 5px solid var(--accent);
+  }
+  .score-meta { flex: 1; }
+  .score-meta .band { font-size: 1.1rem; font-weight: 600; margin-bottom: 4px; }
+  .score-meta .sub { color: var(--muted); font-size: 0.85rem; }
+
+  .legend { display: flex; gap: 16px; flex-wrap: wrap; margin: 16px 0 4px; font-size: 0.8rem; color: var(--muted); }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+
+  .transcript { line-height: 2.4; font-size: 1.05rem; margin-top: 10px; }
+  .w { padding: 2px 4px; border-radius: 5px; cursor: default; }
+  .w.clear { }
+  .w.mild { background: rgba(240,180,41,0.18); border-bottom: 2px solid var(--amber); }
+  .w.bad { background: rgba(240,85,90,0.18); border-bottom: 2px solid var(--red); }
+  .w.pause { box-shadow: inset 3px 0 0 var(--muted); padding-left: 8px; }
+
+  .tooltip { display: block; font-size: 0.7rem; color: var(--muted); }
+
+  ul.feedback { margin: 10px 0 0; padding-left: 20px; color: var(--text); font-size: 0.92rem; line-height: 1.6; }
+
+  footer { text-align: center; color: var(--muted); font-size: 0.78rem; margin-top: 30px; }
+  footer a { color: var(--accent); }
+
+  .spinner {
+    width: 18px; height: 18px; border: 2.5px solid rgba(255,255,255,0.35);
+    border-top-color: white; border-radius: 50%; display: inline-block;
+    animation: spin .7s linear infinite; vertical-align: -3px; margin-right: 8px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>🗣️ Pronunciation Coach</h1>
+    <p>Upload 30–45 seconds of spoken English and get an instant pronunciation score with word-level feedback.</p>
+  </header>
+
+  <div class="card">
+    <div class="dropzone" id="dropzone">
+      <div id="dzText">
+        <strong>Click to choose an audio file</strong>
+        <div class="hint">or drag & drop &middot; WAV, MP3, M4A, OGG, WEBM &middot; 30–45 seconds</div>
+      </div>
+      <input type="file" id="fileInput" accept="audio/*" />
+    </div>
+
+    <div id="fileInfo" style="display:none" class="file-info">
+      <span id="fileName"></span>
+      <span id="fileDuration" class="dur"></span>
+    </div>
+
+    <div class="consent">
+      <input type="checkbox" id="consent" />
+      <label for="consent">
+        I consent to this audio being uploaded and processed temporarily to generate a pronunciation score.
+        The audio file is analyzed in memory and deleted from the server immediately after scoring — it is
+        not stored, shared, or used for any other purpose.
+      </label>
+    </div>
+
+    <div id="errorBox" style="display:none" class="error-box"></div>
+
+    <button id="analyzeBtn" disabled>Analyze pronunciation</button>
+  </div>
+
+  <div id="resultsCard" class="card" style="display:none">
+    <div class="score-row">
+      <div class="score-circle" id="scoreCircle">--</div>
+      <div class="score-meta">
+        <div class="band" id="scoreBand">—</div>
+        <div class="sub" id="scoreSub">—</div>
+      </div>
+    </div>
+
+    <div class="legend">
+      <span><i class="dot" style="background:var(--green)"></i> Clear</span>
+      <span><i class="dot" style="background:var(--amber)"></i> Slightly unclear</span>
+      <span><i class="dot" style="background:var(--red)"></i> Mispronounced / unclear</span>
+      <span><i class="dot" style="background:var(--muted)"></i> Long pause before</span>
+    </div>
+
+    <div class="transcript" id="transcript"></div>
+
+    <h4 style="margin-bottom:6px;margin-top:20px;">Feedback</h4>
+    <ul class="feedback" id="feedbackList"></ul>
+  </div>
+
+  <footer>
+    Audio is processed transiently and never stored — see the app's DPDP notice.
+    &middot; <a href="https://github.com/" target="_blank" rel="noopener">Source code</a>
+  </footer>
+</div>
+
+<script>
+const MIN_DUR = 30, MAX_DUR = 45;
+const dropzone = document.getElementById('dropzone');
+const fileInput = document.getElementById('fileInput');
+const fileInfo = document.getElementById('fileInfo');
+const fileName = document.getElementById('fileName');
+const fileDuration = document.getElementById('fileDuration');
+const consent = document.getElementById('consent');
+const analyzeBtn = document.getElementById('analyzeBtn');
+const errorBox = document.getElementById('errorBox');
+const resultsCard = document.getElementById('resultsCard');
+
+let selectedFile = null;
+let durationOk = false;
+
+dropzone.addEventListener('click', () => fileInput.click());
+['dragenter','dragover'].forEach(ev => dropzone.addEventListener(ev, e => { e.preventDefault(); dropzone.classList.add('drag'); }));
+['dragleave','drop'].forEach(ev => dropzone.addEventListener(ev, e => { e.preventDefault(); dropzone.classList.remove('drag'); }));
+dropzone.addEventListener('drop', e => {
+  if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+});
+fileInput.addEventListener('change', e => {
+  if (e.target.files.length) handleFile(e.target.files[0]);
+});
+consent.addEventListener('change', updateButton);
+
+function updateButton() {
+  analyzeBtn.disabled = !(selectedFile && durationOk && consent.checked);
+}
+
+function handleFile(file) {
+  hideError();
+  selectedFile = file;
+  durationOk = false;
+  resultsCard.style.display = 'none';
+
+  const url = URL.createObjectURL(file);
+  const audio = new Audio();
+  audio.preload = 'metadata';
+  audio.src = url;
+  audio.onloadedmetadata = () => {
+    const dur = audio.duration;
+    URL.revokeObjectURL(url);
+    fileInfo.style.display = 'flex';
+    fileName.textContent = file.name;
+    if (dur >= MIN_DUR && dur <= MAX_DUR) {
+      durationOk = true;
+      fileDuration.textContent = `${dur.toFixed(1)}s ✓`;
+      fileDuration.className = 'dur ok';
+    } else {
+      durationOk = false;
+      fileDuration.textContent = `${dur.toFixed(1)}s — must be ${MIN_DUR}-${MAX_DUR}s`;
+      fileDuration.className = 'dur bad';
+      showError(`This clip is ${dur.toFixed(1)}s long. Please upload audio between ${MIN_DUR} and ${MAX_DUR} seconds.`);
+    }
+    updateButton();
+  };
+  audio.onerror = () => {
+    showError('Could not read this audio file. Try a different format (WAV/MP3/M4A).');
+  };
+}
+
+function showError(msg) { errorBox.textContent = msg; errorBox.style.display = 'block'; }
+function hideError() { errorBox.style.display = 'none'; }
+
+analyzeBtn.addEventListener('click', async () => {
+  if (!selectedFile) return;
+  hideError();
+  analyzeBtn.disabled = true;
+  analyzeBtn.innerHTML = '<span class="spinner"></span>Analyzing...';
+
+  const form = new FormData();
+  form.append('file', selectedFile);
+
+  try {
+    const res = await fetch('/api/analyze', { method: 'POST', body: form });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Analysis failed');
+    renderResults(data);
+  } catch (err) {
+    showError(err.message || 'Something went wrong. Please try again.');
+  } finally {
+    analyzeBtn.innerHTML = 'Analyze pronunciation';
+    updateButton();
+  }
+});
+
+function classFor(word) {
+  if (word.issues.includes('mispronounced_or_unclear') || word.issues.includes('not_recognized_as_english_word')) return 'bad';
+  if (word.issues.includes('slightly_unclear')) return 'mild';
+  return 'clear';
+}
+
+function renderResults(data) {
+  resultsCard.style.display = 'block';
+
+  const circle = document.getElementById('scoreCircle');
+  circle.textContent = data.overall_score;
+  const color = data.overall_score >= 85 ? 'var(--green)' : data.overall_score >= 70 ? '#8fd0ff' : data.overall_score >= 50 ? 'var(--amber)' : 'var(--red)';
+  circle.style.borderColor = color;
+
+  document.getElementById('scoreBand').textContent = data.score_band;
+  document.getElementById('scoreSub').textContent =
+    `${data.duration_seconds}s clip · ${data.flagged_word_count}/${data.total_word_count} words flagged · mean ASR confidence ${(data.mean_confidence*100).toFixed(0)}%`;
+
+  const t = document.getElementById('transcript');
+  t.innerHTML = '';
+  data.words.forEach(w => {
+    const span = document.createElement('span');
+    span.className = 'w ' + classFor(w) + (w.issues.includes('long_pause_before') ? ' pause' : '');
+    span.textContent = w.word + ' ';
+    if (w.issues.length) {
+      span.title = `confidence ${(w.confidence*100).toFixed(0)}% — ${w.issues.join(', ').replace(/_/g,' ')}`;
+    }
+    t.appendChild(span);
+  });
+
+  const list = document.getElementById('feedbackList');
+  list.innerHTML = '';
+  data.feedback.forEach(f => {
+    const li = document.createElement('li');
+    li.textContent = f;
+    list.appendChild(li);
+  });
+
+  resultsCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+</script>
+</body>
+</html>
