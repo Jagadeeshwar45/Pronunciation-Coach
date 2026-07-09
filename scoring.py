@@ -51,10 +51,19 @@ def get_model() -> WhisperModel:
     """Lazily load the model once per process (cold start cost, then cached)."""
     global _model
     if _model is None:
-        # "small.en" on CPU int8 is a deliberate trade-off: good enough
-        # accuracy for word-level confidence, small enough to run on a
-        # free-tier CPU dyno without a GPU. See ARCHITECTURE.md.
-        _model = WhisperModel("small.en", device="cpu", compute_type="int8")
+        # "tiny.en" on CPU int8: confirmed via Render deploy logs that
+        # "small.en" and even "base.en" risk exceeding the free tier's
+        # 512MB memory ceiling (OOM kill mid-request). tiny.en trades some
+        # word-confidence precision for reliably fitting in 512MB. If you
+        # deploy on a host with more RAM (e.g. Render Starter, 2GB), bump
+        # this back up to "base.en" or "small.en" for better accuracy.
+        _model = WhisperModel(
+            "tiny.en",
+            device="cpu",
+            compute_type="int8",
+            cpu_threads=1,   # fewer threads = smaller working-memory buffers
+            num_workers=1,
+        )
     return _model
 
 

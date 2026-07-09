@@ -1,3 +1,4 @@
+import asyncio
 import os
 import shutil
 import tempfile
@@ -24,6 +25,12 @@ app.add_middleware(
 
 ALLOWED_EXTENSIONS = {".wav", ".mp3", ".m4a", ".ogg", ".webm", ".mp4", ".mpga", ".mpeg"}
 MAX_FILE_SIZE_MB = 25
+
+# Free-tier hosts (512MB RAM) can't safely run two Whisper inferences at
+# once — a second concurrent request would roughly double peak memory and
+# risk an OOM kill. This lock forces requests to queue instead of overlap.
+# On a host with more RAM, this can be removed to allow real concurrency.
+_analyze_lock = asyncio.Lock()
 
 
 @app.get("/api/health")
@@ -58,7 +65,8 @@ async def analyze(file: UploadFile = File(...)):
                     raise HTTPException(status_code=400, detail=f"File too large. Max {MAX_FILE_SIZE_MB}MB.")
                 f.write(chunk)
 
-        result = analyze_audio(tmp_path)
+        async with _analyze_lock:
+            result = analyze_audio(tmp_path)
         return JSONResponse(result)
 
     except HTTPException:
