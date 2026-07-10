@@ -4,7 +4,7 @@ An AI-powered web application that evaluates English pronunciation from uploaded
 
 The application analyzes a **30–45 second English audio recording**, generates an overall pronunciation score, identifies words that may have been mispronounced or unclear, and provides actionable feedback using automatic speech recognition (ASR).
 
-**Live demo:** `https://pronunciation-coach-vyqf.onrender.com/`
+**[Open the app →](https://pronunciation-coach-vyqf.onrender.com/)**
 
 ---
 
